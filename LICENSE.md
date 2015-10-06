@@ -1,20 +1,3 @@
-MAX7219 Driver
-==============
-
-A MAX7219 driver for an 8x8 LED matrix display in microPython for the pyboard.
-
-Tested using a LinkSprite LED Matrix Kit V1.
-
-Inspired by MAX7219.py by frederic.boulanger@centralesupelec.fr at
-http://wwwdi.supelec.fr/fb/Archi2015/PyBoardMAX7219-8x8.
-
-Modified to use pyb.SPI and classes.
-
-Uses CP437_FONT from Richard Hull's MAX7219 driver.
-https://github.com/rm-hull/max7219
-
-License
--------
 The MIT License (MIT)
 
 Copyright (c) 2015 Jeanne Young

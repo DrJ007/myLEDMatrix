@@ -1,5 +1,12 @@
 #
-# Drive a 8x8 LED matrix using a MAX7219
+# Drive an 8x8 LED matrix using a MAX7219 display driver using a pyboard.
+#
+# Inspired by MAX7219.py by frederic.boulanger@centralesupelec.fr.
+# http://wwwdi.supelec.fr/fb/Archi2015/PyBoardMAX7219-8x8
+# Modified to use pyb.SPI and classes.
+#
+# Uses CP437_FONT from Richard Hull's MAX7219 driver.
+# https://github.com/rm-hull/max7219
 #
 import pyb
 
@@ -265,55 +272,54 @@ CP437_FONT = [
 DEFAULT_FONT = CP437_FONT
 
 class constants(object):
-    NOOPRegister        = 0x00
-    DecodeRegister      = 0x09
-    IntensityRegister   = 0x0A
-    ScanLimitRegister   = 0x0B
-    ShutdownRegister    = 0x0C
-    DisplayTestRegister = 0x0F
+    REG_NOOP            = 0x00
+    REG_DECODEMODE      = 0x09
+    REG_INTENSITY       = 0x0A
+    REG_SCANLIMIT       = 0x0B
+    REG_SHUTDOWN        = 0x0C
+    REG_DISPLAYTEST     = 0x0F
 
-    On  = 0B00000001
-    Off = 0B00000000
+    ON  = 0B00000001
+    OFF = 0B00000000
 
-    # Register holding the value for column 0 (leftmost) to 7 (rightmost)
-    columnRegister = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]
+    # Register hold the value for column 0 (leftmost) to 7 (rightmost)
+    REG_COLUMN = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]
 
 
 class matrix(object):
     def __init__(self):
-        # Bitmap for holding the LED state
+
         self.bitmap = bytearray(8)
         self.buffer = bytearray(2)
-        
-        data = pyb.Pin.board.Y8;    # MAX7219 serial data in pin
-        cs = pyb.Pin.board.Y5;      # Register cs pin
-        clk = pyb.Pin.board.Y6;     # Serial shift clock pin
 
+        # Initialise the SPI object with the bus=2.
+        # This uses pins (NSS, SCK, MISO, MOSI) = (Y5, Y6, Y7, Y8).
+        # The SPI driver doesn't use the NSS pin so the CS pin has to be set LOW/HIGH by the software.
         self.spi_bus = pyb.SPI(2,pyb.SPI.MASTER, bits=8)
+        din = pyb.Pin.board.Y8;    # DIN
+        clk = pyb.Pin.board.Y6;     # CLK
 
-        # Initialize the pin of the pyboard in output push-pull mode
+        # Initialize the CS pin of the pyboard in output push-pull mode.
+        cs = pyb.Pin.board.Y5;      
         self.csPin = pyb.Pin(cs, pyb.Pin.OUT_PP)
-         
-        # Set all pin to low
         self.csPin.low()
          
         # Configure the MAX7219 
-        self.serialWrite(constants.ScanLimitRegister,7)             # use rows 0 to 7
-        self.setIntensity(25)                                       # set display intensity to 25% 
-        self.serialWrite(constants.ShutdownRegister, constants.On)  # normal operation
-        self.serialWrite(constants.DecodeRegister, constants.Off)   # no decode
+        self.serialWrite(constants.REG_SCANLIMIT,7)                 # Use rows 0 to 7
+        self.setIntensity(25)                                       # Set display intensity to 25% 
+        self.serialWrite(constants.REG_SHUTDOWN, constants.ON)      # Normal operation
+        self.serialWrite(constants.REG_DECODEMODE, constants.OFF)   # No decode
 
         pyb.delay(1000)
 
 
     # Run test
     def runTest(self):
-        self.serialWrite(constants.DisplayTestRegister, constants.On)       
+        self.serialWrite(constants.REG_DISPLAYTEST, constants.ON)       
         pyb.delay(2000)
-        self.serialWrite(constants.DisplayTestRegister, constants.Off)
+        self.serialWrite(constants.REG_DISPLAYTEST, constants.OFF)
      
     # Write some data to an address in the MAX7219.
-    # The address+data are shifted MSB first as a 16 bit word into the MAX7219, then ed.
     def serialWrite(self,address, data):
         self.buffer[0] = address
         self.buffer[1] = data
@@ -324,11 +330,11 @@ class matrix(object):
     # Set the intensity of the segments in percents of the max intensity
     def setIntensity(self,percent):
         value = int((percent * 15)/100)
-        self.serialWrite(constants.IntensityRegister, value)
+        self.serialWrite(constants.REG_INTENSITY, value)
      
-    # Write a value to a column of the LED matrix (the MAX7219 should be in no decode mode)
+    # Write a value to a column of the LED matrix 
     def writeColumn(self,colNum, value):
-        self.serialWrite(constants.columnRegister[colNum], value)
+        self.serialWrite(constants.REG_COLUMN[colNum], value)
      
     # Clear the bitmap
     def clearBitmap(self):
@@ -345,41 +351,27 @@ class matrix(object):
         self.clearBitmap()
         self.updateDisplay()
      
-    # Set LED on column x, line y (0 = top) on or off
+    # Set LED on column x, line y on or off
     def setPixel(self, x, y, on):
         if on:
-            self.bitmap[x] |= 2**y
+            self.bitmap[x] |= (1 << y)
         else:
-            self.bitmap[x] &= (0xFF - 2**y)
+            self.bitmap[x] &= ~(1 << y)
      
     def showImage(self, image):
-        if not isinstance(image, (list, tuple)):
-            raise RuntimeError("Image is not a list")
-        if len(image) != 8:
-            raise RuntimeError("Image does not have 8 components")
-        if isinstance(image[0], int):
+        if isinstance(image[0],int):
             for i in range(8):
                 value = image[i]
                 for j in range(8):
                     self.setPixel(j, i, value & 2**(7 - j))
-        elif isinstance(image[0], str):
+        elif isinstance(image[0], (tuple,list)):
             for i in range(8):
-                if len(image[i]) != 8:
-                    raise RuntimeError("String in image does not have 8 character")
-                for j in range(8):
-                    self.setPixel(j, i, image[i][j] != ' ')
-        elif isinstance(image[0], (tuple, list)):
-            for i in range(8):
-                if len(image[i]) != 8:
-                    raise RuntimeError("List in image does not have 8 items")
                 for j in range(8):
                     self.setPixel(j, i, image[i][j])
-        else:
-            raise RuntimeError("Could not interpret image")
         self.updateDisplay()
 
     def showText(self, text):
-        font = DEFAULT_FONT
+        font = DEFAULT_FONT  
         for asciiCode in text:
             self.showImage(font[ord(asciiCode)])
             pyb.delay(500)
