@@ -1,7 +1,7 @@
 #
 # Drive an 8x8 LED matrix using a MAX7219 display driver using a pyboard.
 #
-# Inspired by MAX7219.py by frederic.boulanger@centralesupelec.fr.
+# Based on MAX7219.py by frederic.boulanger@centralesupelec.fr.
 # http://wwwdi.supelec.fr/fb/Archi2015/PyBoardMAX7219-8x8
 # Modified to use pyb.SPI and classes.
 #
@@ -302,7 +302,6 @@ class matrix(object):
         # Initialize the CS pin of the pyboard in output push-pull mode.
         cs = pyb.Pin.board.Y5;      
         self.csPin = pyb.Pin(cs, pyb.Pin.OUT_PP)
-        self.csPin.low()
          
         # Configure the MAX7219 
         self.serialWrite(constants.REG_SCANLIMIT,7)                 # Use rows 0 to 7
@@ -362,8 +361,8 @@ class matrix(object):
         if isinstance(image[0],int):
             for i in range(8):
                 value = image[i]
-                for j in range(8):
-                    self.setPixel(j, i, value & 2**(7 - j))
+                for j in range(7,-1,-1):
+                    self.setPixel(7-j, i, value & (1 << j))
         elif isinstance(image[0], (tuple,list)):
             for i in range(8):
                 for j in range(8):

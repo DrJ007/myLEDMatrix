@@ -116,7 +116,7 @@ myMatrix = myLEDMatrix.matrix()
 
 myMatrix.setIntensity(10)
 
-while True: 
+for j in range(3):
     for i in range(2):
         myMatrix.showImage(alien1f1)
         pyb.delay(250)
@@ -145,5 +145,6 @@ while True:
         myMatrix.showImage(alien4f4)
         pyb.delay(120)
 
-
+pyb.delay(500)
+myMatrix.clearDisplay()
 

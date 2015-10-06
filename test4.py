@@ -10,8 +10,6 @@ myMatrix = myLEDMatrix.matrix()
 
 myMatrix.setIntensity(10)
 
-myMatrix.runTest()
-
 myMatrix.showText("Hello!")
  
 pyb.delay(1000)
